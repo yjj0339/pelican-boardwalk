@@ -117,8 +117,8 @@ export function placeLimb(mesh, a, b) {
   mesh.scale.set(1, len, 1);
 }
 
-// Two-bone IK in the XY plane; knee always bends toward +X.
-export function solveIK(hip, target, l1, l2, knee, ankle) {
+// Two-bone IK in the XY plane; bendSign +1 bends the joint toward +X, -1 toward -X.
+export function solveIK(hip, target, l1, l2, knee, ankle, bendSign = 1) {
   const dx = target.x - hip.x, dy = target.y - hip.y;
   const raw = Math.hypot(dx, dy) || 1e-5;
   const d = clamp(raw, Math.abs(l1 - l2) + 1e-3, l1 + l2 - 1e-3);
@@ -126,7 +126,7 @@ export function solveIK(hip, target, l1, l2, knee, ankle) {
   const a = (l1 * l1 - l2 * l2 + d * d) / (2 * d);
   const h = Math.sqrt(Math.max(0, l1 * l1 - a * a));
   let px = -uy, py = ux;
-  if (px < 0) { px = -px; py = -py; }
+  if (px * bendSign < 0) { px = -px; py = -py; }
   knee.set(hip.x + ux * a + px * h, hip.y + uy * a + py * h, hip.z);
   ankle.set(hip.x + ux * d, hip.y + uy * d, target.z);
 }

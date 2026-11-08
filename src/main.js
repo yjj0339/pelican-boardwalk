@@ -99,6 +99,7 @@ async function boot() {
   const pelican = createPelican();
   bike.body.add(pelican.group);
   bike.body.add(pelican.legsRoot);
+  bike.body.add(pelican.armsRoot);
 
   const audio = createAudio();
 
@@ -119,8 +120,8 @@ async function boot() {
 
   function updateFraming() {
     const aspect = window.innerWidth / Math.max(1, window.innerHeight);
-    aspectFit = clamp(1.05 / Math.max(aspect, 0.35), 1, 1.8);
-    frameBias = aspect < 0.92 ? -0.20 : 0;
+    aspectFit = clamp(1.05 / Math.max(aspect, 0.35), 1, 1.6);
+    frameBias = aspect < 0.92 ? -0.10 : 0;
   }
   updateFraming();
 
@@ -269,8 +270,8 @@ async function boot() {
     raycaster.setFromCamera(ndc, camera);
     const bellHit = raycaster.intersectObject(bike.bell, true);
     if (bellHit.length) { ringBell(); return; }
-    const birdHit = raycaster.intersectObjects([pelican.group, pelican.legsRoot], true);
-    if (birdHit.length) { pelican.startle(); toast('鹈鹕抖了抖翅膀'); return; }
+    const birdHit = raycaster.intersectObjects([pelican.group, pelican.legsRoot, pelican.armsRoot], true);
+    if (birdHit.length) { pelican.startle(); toast('鹈鹕抬手向你挥了挥'); return; }
     const bikeHit = raycaster.intersectObject(bike.group, true);
     if (bikeHit.length) ringBell();
   }
@@ -406,7 +407,7 @@ async function boot() {
     headlamp.intensity = state.lampOn * 30;
 
     bike.update(simDt, state);
-    pelican.update(simDt, state, bike.pedalWorld);
+    pelican.update(simDt, state, bike.pedalWorld, bike.gripWorld);
     world.update(dt, state);
     audio.setSpeed(state.speedNorm);
     updateCamera(dt);
@@ -464,7 +465,7 @@ async function boot() {
 
   // prime a couple of frames so the first visible frame is already correct
   bike.update(0.016, state);
-  pelican.update(0.016, state, bike.pedalWorld);
+  pelican.update(0.016, state, bike.pedalWorld, bike.gripWorld);
   world.update(0.016, state);
   updateCamera(0.016);
   renderer.render(scene, camera);

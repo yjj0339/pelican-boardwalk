@@ -176,45 +176,54 @@ export function createPelican() {
     tail.add(f);
   }
 
-  /* ---------------- wings ---------------- */
-  const wings = [];
+  /* ---------------- wings as riding arms ---------------- */
+  // The wings reach forward and grip the handlebar; hands stay glued to the grips.
+  const armsRoot = new THREE.Group();
+  const arms = [];
   for (const s of [1, -1]) {
-    const wing = new THREE.Group();
-    wing.position.set(0.045, 1.445, s * 0.235);
-    torso.add(wing);
-
-    const upper = new THREE.Mesh(new THREE.SphereGeometry(0.16, 20, 14), M.wing);
-    upper.scale.set(2.30, 0.72, 0.34);
-    upper.position.set(-0.20, -0.055, s * 0.015);
-    upper.rotation.z = 0.10;
-    wing.add(upper);
-
-    // cream scapulars blending the wing into the back
     for (let i = 0; i < 3; i++) {
-      const f = new THREE.Mesh(featherGeo(0.12, 0.045, 0.22), M.wing);
-      f.position.set(-0.05 - i * 0.085, 0.012, s * 0.055);
-      f.rotation.y = s * 0.08;
-      f.rotation.z = 0.06;
-      wing.add(f);
+      const f = new THREE.Mesh(featherGeo(0.13, 0.045, 0.22), M.wing);
+      f.position.set(0.02 - i * 0.075, 1.43, s * 0.20);
+      f.rotation.y = s * 0.10;
+      f.rotation.z = 0.10;
+      torso.add(f);
     }
-    // two rows of grey coverts along the lower edge
-    for (let i = 0; i < 7; i++) {
-      const f = new THREE.Mesh(featherGeo(0.14, 0.05, 0.2), M.wing);
-      f.position.set(-0.03 - i * 0.060, -0.115 - i * 0.004, s * 0.058);
-      f.rotation.y = s * (0.08 + i * 0.02);
-      f.rotation.z = 0.42;
-      wing.add(f);
+    const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.068, 1, 10), M.wing);
+    const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.048, 1, 10), M.wing);
+    const elbowGrp = new THREE.Group();
+    elbowGrp.add(new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 10), M.wing));
+    for (let i = 0; i < 4; i++) {
+      const f = new THREE.Mesh(featherGeo(0.20 - i * 0.02, 0.05, 0.18), i > 1 ? M.tip : M.wing);
+      f.position.set(0, -0.03 - i * 0.010, s * (0.02 + i * 0.008));
+      f.rotation.z = Math.PI / 2 + (i - 1.5) * 0.10;
+      f.rotation.y = s * (0.15 + i * 0.06);
+      elbowGrp.add(f);
     }
-    // dark pointed primaries reaching past the tail
-    for (let i = 0; i < 6; i++) {
-      const t = i / 5;
-      const f = new THREE.Mesh(featherGeo(0.30 - t * 0.06, 0.06, 0.17), i > 1 ? M.tip : M.wing);
-      f.position.set(-0.30 - i * 0.045, -0.085 - i * 0.006, s * (0.05 + t * 0.022));
-      f.rotation.y = s * (0.10 + t * 0.14);
-      f.rotation.z = 0.12 + t * 0.05;
-      wing.add(f);
+    const hand = new THREE.Group();
+    const mitt = new THREE.Mesh(new THREE.SphereGeometry(0.048, 14, 12), M.wing);
+    mitt.scale.set(1.0, 1.35, 1.0);
+    hand.add(mitt);
+    for (let i = 0; i < 3; i++) {
+      const f = new THREE.Mesh(taperedTube(new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-0.022 + i * 0.022, 0.030, 0.032),
+        new THREE.Vector3(-0.022 + i * 0.022, 0.048, 0.0),
+        new THREE.Vector3(-0.022 + i * 0.022, 0.030, -0.036),
+      ]), 6, (t) => 0.012 * (1 - t * 0.5), 6), M.wing);
+      hand.add(f);
     }
-    wings.push({ group: wing, side: s });
+    const thumb = new THREE.Mesh(taperedTube(new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0.030, -0.012, 0.020),
+      new THREE.Vector3(0.046, 0.010, -0.010),
+      new THREE.Vector3(0.030, 0.022, -0.032),
+    ]), 6, (t) => 0.013 * (1 - t * 0.5), 6), M.wing);
+    hand.add(thumb);
+    armsRoot.add(upper, fore, elbowGrp, hand);
+    shadows(upper); shadows(fore); shadows(elbowGrp); shadows(hand);
+    arms.push({
+      side: s, upper, fore, elbowGrp, hand,
+      shoulder: new THREE.Vector3(0.12, 1.46, s * 0.235),
+      elbowV: new THREE.Vector3(), handV: new THREE.Vector3(), target: new THREE.Vector3(),
+    });
   }
 
   /* ---------------- neck ---------------- */
@@ -355,6 +364,7 @@ export function createPelican() {
     const knee = new THREE.Mesh(new THREE.SphereGeometry(0.047, 12, 10), M.legs);
     const ankle = new THREE.Mesh(new THREE.SphereGeometry(0.033, 10, 8), M.legs);
     const foot = webbedFoot(M.feet);
+    foot.scale.setScalar(1.15);
     legsRoot.add(thigh, shank, knee, ankle, foot);
     shadows(thigh); shadows(shank); shadows(knee); shadows(ankle); shadows(foot);
     legs.push({
@@ -378,12 +388,15 @@ export function createPelican() {
   let lookT = 99;
   let lookDir = 1;
   let pouchWobble = 0;
+  let waveT = 99;
   const _hip = new THREE.Vector3(), _pedal = new THREE.Vector3();
+  const _shoulder = new THREE.Vector3(), _dirv = new THREE.Vector3(), _gripAxis = new THREE.Vector3();
+  const UP = new THREE.Vector3(0, 1, 0), WAVE_AXIS = new THREE.Vector3(0, 0.2, 1);
 
-  function startle() { flapT = 0; flapTimer = rand(6, 10); pouchWobble = 1; lookT = 0; lookDir = 1; }
+  function startle() { flapT = 0; waveT = 0; flapTimer = rand(6, 10); pouchWobble = 1; lookT = 0; lookDir = 1; }
   function bump() { pouchWobble = Math.max(pouchWobble, 0.6); }
 
-  function update(dt, s, pedalTargets) {
+  function update(dt, s, pedalTargets, gripTargets) {
     const t = s.time;
     const cad = s.crankAngle;
     const effort = s.speedNorm;
@@ -425,22 +438,34 @@ export function createPelican() {
       e.lidLine.visible = closed >= 0.55;
     }
 
-    // wings: folded while cruising, burst of flaps now and then
-    flapTimer -= dt; flapT += dt;
+    // shoulders shrug now and then; a startle lifts one hand into a wave
+    flapTimer -= dt; flapT += dt; waveT += dt;
     if (flapTimer <= 0) { flapT = 0; flapTimer = rand(7, 13); }
-    let flap = 0;
-    if (flapT < 1.7) {
-      const env = Math.sin(Math.min(1, flapT / 1.7) * Math.PI);
-      flap = Math.max(0, Math.sin(flapT * 11.5)) * env;
+    const shrug = flapT < 1.7 ? Math.sin(Math.min(1, flapT / 1.7) * Math.PI) * 0.045 : 0;
+    const waveEnv = waveT < 1.7 ? Math.sin(Math.min(1, waveT / 1.7) * Math.PI) : 0;
+    for (const a of arms) {
+      const grip = gripTargets[a.side > 0 ? 1 : 0];
+      a.target.copy(grip);
+      if (a.side > 0 && waveEnv > 0) {
+        a.target.x = lerp(a.target.x, 0.06, waveEnv);
+        a.target.y = lerp(a.target.y, 2.12, waveEnv);
+        a.target.z = lerp(a.target.z, 0.50 + Math.sin(waveT * 13) * 0.07, waveEnv);
+      }
+      _shoulder.copy(a.shoulder);
+      _shoulder.y += bird.position.y * 0.6 + torso.position.y * 0.4 + shrug;
+      solveIK(_shoulder, a.target, 0.22, 0.20, a.elbowV, a.handV, -1);
+      a.elbowV.z = a.shoulder.z + a.side * 0.13;
+      placeLimb(a.upper, _shoulder, a.elbowV);
+      placeLimb(a.fore, a.elbowV, a.handV);
+      a.elbowGrp.position.copy(a.elbowV);
+      _dirv.subVectors(a.handV, a.elbowV).normalize();
+      a.elbowGrp.quaternion.setFromUnitVectors(UP, _dirv);
+      a.hand.position.copy(a.handV);
+      _gripAxis.set(-a.side * 0.5, 0, 0.87).normalize();
+      if (a.side > 0) _gripAxis.lerp(WAVE_AXIS, waveEnv).normalize();
+      a.hand.quaternion.setFromUnitVectors(UP, _gripAxis);
     }
-    const idle = Math.sin(t * 1.3) * 0.018 + effort * 0.05;
-    for (const w of wings) {
-      w.group.rotation.z = -idle * 0.5 - flap * 1.05;
-      w.group.rotation.y = w.side * (0.02 + flap * 0.62 + idle * 0.3);
-      w.group.rotation.x = w.side * flap * 0.12;
-      w.group.position.y = 1.445 + flap * 0.035;
-    }
-    tail.rotation.z = Math.sin(cad * 2 + 2.6) * 0.05 - flap * 0.18;
+    tail.rotation.z = Math.sin(cad * 2 + 2.6) * 0.05 - shrug * 2.0;
     tail.rotation.y = Math.sin(t * 0.9) * 0.05;
 
     // legs: two-bone IK onto the pedals
@@ -492,5 +517,5 @@ export function createPelican() {
     knot.scale.setScalar(1 + Math.sin(t * 6) * 0.02 * wind);
   }
 
-  return { group: bird, legsRoot, update, startle, bump, headPivot, beak, pouch, wings, materials: M };
+  return { group: bird, legsRoot, armsRoot, update, startle, bump, headPivot, beak, pouch, arms, materials: M };
 }

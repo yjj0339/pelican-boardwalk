@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {
   TAU, clamp, lerp, rand, mergeGeos, placed, taperedTube, tubeBetween,
-  shadows, treadTexture, chainTexture, wickerTexture, glowTexture,
+  shadows, treadTexture, chainTexture, wickerTexture, glowTexture, ribbonGeometry,
 } from './util.js';
 
 export const BIKE = {
@@ -187,11 +187,28 @@ export function createBicycle() {
   steerContent.add(bar);
   const stem = new THREE.Mesh(tubeBetween(HT.clone(), new THREE.Vector3(0.462, 1.205, 0), 0.02, 0.018), M.chrome);
   steerContent.add(stem);
+  const grips = [];
   for (const s of [-1, 1]) {
     const grip = new THREE.Mesh(placed(new THREE.CylinderGeometry(0.021, 0.019, 0.115, 12), 0.313, 1.182, s * 0.245, Math.PI / 2, 0, 0.52 * s), M.leather);
     steerContent.add(grip);
+    grips.push(grip);
     const lever = new THREE.Mesh(placed(new THREE.BoxGeometry(0.085, 0.014, 0.016), 0.372, 1.158, s * 0.205, 0, 0, -0.3), M.chrome);
     steerContent.add(lever);
+  }
+
+  // handlebar streamers
+  const streamers = [];
+  const streamerMats = [
+    new THREE.MeshStandardMaterial({ color: 0xe2574c, roughness: 0.7, side: THREE.DoubleSide }),
+    new THREE.MeshStandardMaterial({ color: 0x57d6c4, roughness: 0.7, side: THREE.DoubleSide }),
+  ];
+  for (const sd of [-1, 1]) {
+    const segs = 12;
+    const geo = ribbonGeometry(segs);
+    const mesh = new THREE.Mesh(geo, streamerMats[sd > 0 ? 0 : 1]);
+    mesh.frustumCulled = false;
+    steerContent.add(mesh);
+    streamers.push({ geo, segs, side: sd, phase: sd * 2.1 });
   }
 
   // bell
@@ -360,6 +377,7 @@ export function createBicycle() {
   let wheelAngle = 0;
   let bellT = 99;
   const pedalWorld = [new THREE.Vector3(), new THREE.Vector3()];
+  const gripWorld = [new THREE.Vector3(), new THREE.Vector3()];
   const _v = new THREE.Vector3();
 
   function ring() { bellT = 0; }
@@ -377,7 +395,28 @@ export function createBicycle() {
       pedals[i].getWorldPosition(pedalWorld[i]);
       body.worldToLocal(pedalWorld[i]);
     }
+    for (let i = 0; i < grips.length; i++) {
+      grips[i].getWorldPosition(gripWorld[i]);
+      body.worldToLocal(gripWorld[i]);
+    }
     M.chainMap.offset.x = -crankAngle * 0.055;
+
+    for (const st of streamers) {
+      const arr = st.geo.attributes.position.array;
+      const wind = 0.4 + s.speedNorm * 1.2;
+      for (let i = 0; i <= st.segs; i++) {
+        const u = i / st.segs;
+        const x = 0.295 - u * 0.36 * (0.7 + s.speedNorm * 0.5);
+        const y = 1.172 + Math.sin(u * 7 - s.time * 10 + st.phase) * 0.035 * u * wind - u * 0.02;
+        const z = st.side * 0.272 + Math.cos(u * 5 - s.time * 8 + st.phase) * 0.04 * u * wind;
+        const hw = 0.020 * (1 - u * 0.5);
+        const k = i * 6;
+        arr[k] = x; arr[k + 1] = y - hw; arr[k + 2] = z;
+        arr[k + 3] = x; arr[k + 4] = y + hw; arr[k + 5] = z;
+      }
+      st.geo.attributes.position.needsUpdate = true;
+      st.geo.computeVertexNormals();
+    }
 
     // gentle steering wobble + road bumps
     const wobble = Math.sin(s.time * 1.1) * 0.035 + Math.sin(s.time * 2.7) * 0.012;
@@ -402,5 +441,5 @@ export function createBicycle() {
     rearLight.material.emissiveIntensity = 0.4 + s.lampOn * 1.8;
   }
 
-  return { group: root, body, update, ring, bell, pedalWorld, frontWheel, rearWheel, crank, steer, steerContent, materials: M };
+  return { group: root, body, update, ring, bell, pedalWorld, gripWorld, frontWheel, rearWheel, crank, steer, steerContent, materials: M };
 }
