@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>鹈鹕海岸线 · Pelican Boardwalk</title>
+<meta name="description" content="一只鹈鹕在黄昏海岸公路上骑自行车的实时 3D 动画。Three.js 程序化建模，支持手机触控运镜。" />
+<meta name="theme-color" content="#0d1b24" />
+<meta property="og:title" content="鹈鹕海岸线 · Pelican Boardwalk" />
+<meta property="og:description" content="黄昏、海风、一辆复古单车，和一只认真踩踏板的鹈鹕。" />
+<meta property="og:type" content="website" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23ffb26b'/%3E%3Cpath d='M7 20c4-1 6-4 7-7 1 3 4 5 8 5-2 4-6 6-10 5z' fill='%23fff6e8'/%3E%3Ccircle cx='19' cy='12' r='1.4' fill='%2322333d'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="./styles.css" />
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+</head>
+<body>
+<div id="app">
+  <canvas id="scene"></canvas>
+  <div id="vignette" aria-hidden="true"></div>
+
+  <header id="titlebar">
+    <div class="mark" aria-hidden="true">
+      <svg viewBox="0 0 40 40" width="34" height="34">
+        <circle cx="20" cy="20" r="18.5" fill="none" stroke="currentColor" stroke-opacity=".45" stroke-width="1"/>
+        <path d="M9 25c5.5-1.2 8.6-5 10-9.4 1.6 4.2 5.4 6.6 10.6 6.2-2.6 5.2-8.4 7.6-14 6.2z" fill="currentColor" fill-opacity=".9"/>
+        <circle cx="25.4" cy="15.6" r="1.5" fill="#0d1b24"/>
+        <path d="M27 16.6l6 1.8-6 1.6z" fill="currentColor"/>
+      </svg>
+    </div>
+    <div class="titles">
+      <h1>鹈鹕海岸线</h1>
+      <p>PELICAN BOARDWALK <span class="sep">/</span> 实时三维骑行</p>
+    </div>
+  </header>
+
+  <div id="hud-right">
+    <div id="stats"><span id="fps">--</span> FPS <span class="dot"></span> <span id="km">0.00</span> km</div>
+    <button id="hideUi" class="icon-btn ghost" title="隐藏界面 (H)" aria-label="隐藏界面">
+      <svg viewBox="0 0 24 24"><path d="M2 12s3.8-6.5 10-6.5S22 12 22 12s-3.8 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/></svg>
+    </button>
+  </div>
+
+  <p id="hint">拖动旋转视角 · 滚轮 / 双指缩放 · 空格暂停</p>
+
+  <nav id="dock" aria-label="动画控制">
+    <div class="row transport">
+      <button id="playBtn" class="icon-btn primary" title="播放 / 暂停 (空格)" aria-label="播放或暂停">
+        <svg class="i-pause" viewBox="0 0 24 24"><rect x="7" y="5" width="3.6" height="14" rx="1.2"/><rect x="13.4" y="5" width="3.6" height="14" rx="1.2"/></svg>
+        <svg class="i-play" viewBox="0 0 24 24"><path d="M8 5.2l11 6.8-11 6.8z"/></svg>
+      </button>
+
+      <div class="speed">
+        <label for="speed">风速 <b id="speedVal">1.0×</b></label>
+        <input id="speed" type="range" min="0.25" max="2.4" step="0.05" value="1" />
+      </div>
+
+      <div class="tools">
+        <button id="bellBtn" class="icon-btn" title="车铃 (B)" aria-label="打车铃">
+          <svg viewBox="0 0 24 24"><path d="M12 3.2a5.6 5.6 0 0 0-5.6 5.6c0 4.2-1.6 5.6-1.6 5.6h14.4s-1.6-1.4-1.6-5.6A5.6 5.6 0 0 0 12 3.2z"/><path d="M10.2 17.6a1.9 1.9 0 0 0 3.6 0"/></svg>
+        </button>
+        <button id="soundBtn" class="icon-btn" title="海浪与风声 (M)" aria-label="环境音开关" aria-pressed="false">
+          <svg viewBox="0 0 24 24"><path d="M4 9.5h3.4L12 5.4v13.2L7.4 14.5H4z"/><path class="wave1" d="M15.4 9.2a4 4 0 0 1 0 5.6"/><path class="wave2" d="M18 6.8a7.4 7.4 0 0 1 0 10.4"/><path class="slash" d="M3.5 3.5l17 17"/></svg>
+        </button>
+        <button id="shotBtn" class="icon-btn" title="保存截图 (S)" aria-label="保存截图">
+          <svg viewBox="0 0 24 24"><path d="M3.5 8.4h3.2l1.5-2.2h7.6l1.5 2.2h3.2v10.2H3.5z"/><circle cx="12" cy="13.4" r="3.3"/></svg>
+        </button>
+        <button id="fsBtn" class="icon-btn" title="全屏 (F)" aria-label="全屏">
+          <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="row chips-row">
+      <div class="chips" id="camChips" role="group" aria-label="相机机位">
+        <button class="chip is-on" data-cam="0">伴骑</button>
+        <button class="chip" data-cam="1">迎面</button>
+        <button class="chip" data-cam="2">贴地</button>
+        <button class="chip" data-cam="3">航拍</button>
+        <button class="chip" data-cam="4">特写</button>
+        <button class="chip" data-cam="5">自由</button>
+      </div>
+      <div class="chips moods" id="moodChips" role="group" aria-label="时段">
+        <button class="chip is-on" data-mood="golden">黄昏</button>
+        <button class="chip" data-mood="noon">正午</button>
+        <button class="chip" data-mood="night">夜航</button>
+      </div>
+    </div>
+  </nav>
+
+  <div id="loader">
+    <div class="loader-inner">
+      <div class="loader-bird" aria-hidden="true">
+        <svg viewBox="0 0 120 60" width="132" height="66">
+          <g class="wheels" fill="none" stroke="currentColor" stroke-width="2.4">
+            <circle cx="28" cy="44" r="12"/><circle cx="88" cy="44" r="12"/>
+            <path d="M28 44l14-18h22l8 18M42 26l10 18M64 26l-6 18"/>
+          </g>
+          <path class="body" d="M44 24c6-9 16-12 24-8 5 2.6 7 7 6.6 11.6L88 30l-13 3c-2 6-8 9-15 8-8-1-14-7-16-17z" fill="currentColor"/>
+          <circle cx="70" cy="18" r="1.8" fill="#0d1b24"/>
+        </svg>
+      </div>
+      <p class="loader-title">正在给鹈鹕装配自行车</p>
+      <div class="bar"><i id="loadBar"></i></div>
+      <p class="loader-sub" id="loadMsg">充气轮胎 · 调整喉囊 · 系好围巾</p>
+    </div>
+  </div>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <div id="fatal" hidden><div><h2>没法启动 3D 场景</h2><p id="fatalMsg"></p></div></div>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
