@@ -189,7 +189,9 @@ export function createBicycle() {
   steerContent.add(stem);
   const grips = [];
   for (const s of [-1, 1]) {
-    const grip = new THREE.Mesh(placed(new THREE.CylinderGeometry(0.021, 0.019, 0.115, 12), 0.313, 1.182, s * 0.245, Math.PI / 2, 0, 0.52 * s), M.leather);
+    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.021, 0.019, 0.115, 12), M.leather);
+    grip.position.set(0.313, 1.182, s * 0.245);
+    grip.rotation.set(Math.PI / 2, 0, 0.52 * s);
     steerContent.add(grip);
     grips.push(grip);
     const lever = new THREE.Mesh(placed(new THREE.BoxGeometry(0.085, 0.014, 0.016), 0.372, 1.158, s * 0.205, 0, 0, -0.3), M.chrome);

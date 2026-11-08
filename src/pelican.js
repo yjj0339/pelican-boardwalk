@@ -94,15 +94,15 @@ export function createPelican() {
   const M = {
     body: new THREE.MeshPhysicalMaterial({
       color: 0xf7f2e6, roughness: 0.82, metalness: 0, sheen: 0.75, sheenRoughness: 0.65,
-      sheenColor: new THREE.Color(0xffe9c9), bumpMap: featherBump(), bumpScale: 0.014,
+      sheenColor: new THREE.Color(0xffe9c9), bumpMap: featherBump(), bumpScale: 0.03,
     }),
     shade: new THREE.MeshPhysicalMaterial({
       color: 0xe4ddcd, roughness: 0.85, sheen: 0.5, sheenColor: new THREE.Color(0xffe9c9),
-      bumpMap: featherBump(), bumpScale: 0.012,
+      bumpMap: featherBump(), bumpScale: 0.026,
     }),
     wing: new THREE.MeshPhysicalMaterial({
       color: 0x78838c, roughness: 0.74, sheen: 0.6, sheenColor: new THREE.Color(0xdfe8ee),
-      bumpMap: featherBump(), bumpScale: 0.016,
+      bumpMap: featherBump(), bumpScale: 0.034,
     }),
     tip: new THREE.MeshStandardMaterial({ color: 0x39434c, roughness: 0.66, bumpMap: featherBump(), bumpScale: 0.02 }),
     bill: new THREE.MeshPhysicalMaterial({ color: 0xf3a63c, roughness: 0.4, clearcoat: 0.55, clearcoatRoughness: 0.35 }),
@@ -188,13 +188,17 @@ export function createPelican() {
       f.rotation.z = 0.10;
       torso.add(f);
     }
-    const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.068, 1, 10), M.wing);
+    const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.060, 1, 10), M.wing);
     const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.048, 1, 10), M.wing);
+    const shoulderCap = new THREE.Mesh(new THREE.SphereGeometry(0.075, 14, 12), M.wing);
+    shoulderCap.position.set(0.12, 1.46, s * 0.235);
+    shoulderCap.scale.set(1.15, 0.95, 0.8);
+    armsRoot.add(shoulderCap);
     const elbowGrp = new THREE.Group();
     elbowGrp.add(new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 10), M.wing));
     for (let i = 0; i < 4; i++) {
-      const f = new THREE.Mesh(featherGeo(0.20 - i * 0.02, 0.05, 0.18), i > 1 ? M.tip : M.wing);
-      f.position.set(0, -0.03 - i * 0.010, s * (0.02 + i * 0.008));
+      const f = new THREE.Mesh(featherGeo(0.14 - i * 0.015, 0.045, 0.18), i > 1 ? M.tip : M.wing);
+      f.position.set(0, -0.03 - i * 0.010, s * (0.05 + i * 0.008));
       f.rotation.z = Math.PI / 2 + (i - 1.5) * 0.10;
       f.rotation.y = s * (0.15 + i * 0.06);
       elbowGrp.add(f);
@@ -301,7 +305,7 @@ export function createPelican() {
     new THREE.Vector3(0.66, -0.038, 0),
   ]);
   const upper = new THREE.Mesh(taperedTube(upperCurve, 24, (t) => lerp(0.060, 0.016, Math.pow(t, 0.8)), 12,
-    (t) => ({ x: lerp(0.78, 0.55, t), y: lerp(1.0, 0.55, t) })), M.bill);
+    (t) => ({ x: lerp(0.95, 0.55, t), y: lerp(1.0, 0.55, t) })), M.bill);
   beak.add(upper);
   const hook = new THREE.Mesh(new THREE.ConeGeometry(0.019, 0.05, 10), M.billTip);
   hook.position.set(0.66, -0.056, 0);
@@ -325,10 +329,10 @@ export function createPelican() {
   jaw.add(lower);
 
   const pouch = new THREE.Mesh(pouchGeometry(0.615,
-    (u) => 0.055 * (1 - u * 0.62),
+    (u) => 0.050 * (1 - u * 0.62),
     (u) => 0.23 * Math.pow(Math.sin(Math.PI * Math.pow(u, 0.62)), 0.6)
   ), M.pouch);
-  pouch.position.set(0.012, -0.014, 0);
+  pouch.position.set(0.012, -0.002, 0);
   jaw.add(pouch);
 
   /* ---------------- scarf ---------------- */
@@ -454,7 +458,7 @@ export function createPelican() {
       _shoulder.copy(a.shoulder);
       _shoulder.y += bird.position.y * 0.6 + torso.position.y * 0.4 + shrug;
       solveIK(_shoulder, a.target, 0.22, 0.20, a.elbowV, a.handV, -1);
-      a.elbowV.z = a.shoulder.z + a.side * 0.13;
+      a.elbowV.z = a.shoulder.z + a.side * 0.17;
       placeLimb(a.upper, _shoulder, a.elbowV);
       placeLimb(a.fore, a.elbowV, a.handV);
       a.elbowGrp.position.copy(a.elbowV);
@@ -498,10 +502,11 @@ export function createPelican() {
       const arr = pos.array;
       for (let i = 0; i <= r.segs; i++) {
         const u = i / r.segs;
-        const wob = Math.sin(u * 6.2 - t * (7 + effort * 7) + r.phase) * 0.10 * u * wind;
+        const wob = Math.sin(u * 6.2 - t * (7 + effort * 7) + r.phase) * 0.13 * u * wind
+          + Math.sin(u * 13 - t * 12 + r.phase) * 0.022 * u * wind;
         const wob2 = Math.cos(u * 4.6 - t * (5.5 + effort * 5) + r.phase * 1.3) * 0.11 * u * wind;
         const x = -0.045 - u * r.len * (0.82 + effort * 0.30);
-        const y = -0.03 + u * u * 0.16 + wob - u * 0.045;
+        const y = -0.02 - u * 0.14 + u * u * 0.06 + wob;
         const z = r.z + wob2 + u * r.sideSpread;
         const twist = Math.sin(u * 3.6 - t * 6 + r.phase) * 1.15 * u;
         const hw = r.w * 0.5 * (1 - u * 0.42);
